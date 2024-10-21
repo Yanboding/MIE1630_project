@@ -31,6 +31,8 @@ class SchedulingEnv:
             self.cost_fn = self.allocation_cost
 
         self.num_sessions, self.num_types = treatment_pattern.shape
+        self.probabilities = [item[0] for item in system_dynamic]
+        self.arrivals = [item[1] for item in system_dynamic]
 
     def interpret_state(self, state):
         '''
@@ -82,11 +84,29 @@ class SchedulingEnv:
             res.append([prob, (next_bookings, next_waitlist, new_future_first_appts), cost, done])
         return res
 
-    def step(self):
-        pass
+    def reset(self):
+        np.random.seed(42)
+        self.t = 1
+        booked_slots = np.array([0 for _ in range(self.num_sessions)])
+        demand = np.array([0 for _ in range(self.num_types)])
+        future_appts = np.array([[0 for _ in range(self.num_types)] for _ in range(self.decision_epoch)])
+        self.state = (booked_slots, demand, future_appts)
+        return self.interpret_state(self.state), {}
+    def step(self, action):
+        cost = self.cost_fn(self.state, action, self.t)
+        next_bookings, next_waitlist, new_future_first_appts = self.post_state(self.state, action)
+        selected_index = np.random.choice(len(self.arrivals), p=self.probabilities)
+        delta = self.arrivals[selected_index]
+        next_waitlist += delta
+        self.t += 1
+        self.state = (next_bookings, next_waitlist, new_future_first_appts)
+        done = self.t == self.decision_epoch
+        # state, cost, is_done, is_truncate, info
+        return self.interpret_state(self.state), cost, done, False, {}
 
 
 if __name__ == "__main__":
+
     treatment_patterns = np.array([[2, 1], [1, 0]]).T
     num_tracking_days, num_types = treatment_patterns.shape
     system_dynamic = [[0.5, np.array([2, 0])], [0.5, np.array([2, 2])]]
@@ -95,11 +115,13 @@ if __name__ == "__main__":
     duration = 1
     regular_capacity = 5
     discount_factor = 0.99
-
+    '''
     demand = np.array([6, 6])
     future_appts = np.array([[0, 0], [0, 0]])
     init_state = (np.array([0,0]), demand, future_appts)
-    decision_epoch = len(future_appts)
+    '''
+    decision_epoch = 15
+    print(decision_epoch)
 
     env = SchedulingEnv(
                  treatment_pattern=treatment_patterns,
@@ -112,10 +134,15 @@ if __name__ == "__main__":
                  discount_factor=0.99,
                  problem_type='allocation'
     )
-    print(env.transition_dynamic(init_state, np.array([6, 6]), 2))
-    '''
-    action = np.array([[2, 1], [0, 4], [6, 6], [1, 3]])
-    print(env.transition_dynamic(init_state,action, 1))
-    print(160+0.99*(0.5*(947.45585)+0.5*(1012.20285)))
-    '''
-
+    prev_state, info = env.reset()
+    portfolio_value = []
+    total_reward = 0
+    for time_step in range(100):
+        action = np.array([0, 0])
+        # observation, reward, terminated, truncated, info
+        state, reward, done, truncated, info = env.step(action)
+        prev_state = state
+        total_reward += reward
+        if done or truncated:
+            break
+    print(total_reward)
