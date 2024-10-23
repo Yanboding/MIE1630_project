@@ -14,6 +14,7 @@ class SchedulingEnv:
                  duration,
                  regular_capacity,
                  discount_factor,
+                 future_first_appts=None,
                  problem_type='allocation'
                  ):
         self.treatment_pattern = treatment_pattern
@@ -31,6 +32,10 @@ class SchedulingEnv:
             self.cost_fn = self.allocation_cost
 
         self.num_sessions, self.num_types = treatment_pattern.shape
+        if future_first_appts == None:
+            future_first_appts = np.array([[0]*self.num_types for _ in range(decision_epoch)])
+            self.future_first_appts = future_first_appts
+            self.future_first_appts_copy = copy.deepcopy(future_first_appts)
         self.probabilities = [item[0] for item in system_dynamic]
         self.arrivals = [item[1] for item in system_dynamic]
 
@@ -40,19 +45,19 @@ class SchedulingEnv:
         :param state:
         :return:
         '''
-        bookings, waitlist, future_first_appts = state
-        return copy.deepcopy(bookings), copy.deepcopy(waitlist), copy.deepcopy(future_first_appts)
+        bookings, waitlist = state
+        return copy.deepcopy(bookings), copy.deepcopy(waitlist)
 
     def valid_allocation_actions(self, state, t):
         days_to_go = self.decision_epoch - t
-        bookings, waitlist, future_first_appts = self.interpret_state(state)
+        bookings, waitlist = self.interpret_state(state)
         if days_to_go <= 0:
             return np.array([waitlist])
         return get_valid_allocation_actions(waitlist)
 
     def allocation_cost(self, state, action, t):
-        bookings, waitlist, future_first_appts = self.interpret_state(state)
-        outstanding_treatments = waitlist + future_first_appts.sum(axis=0)
+        bookings, waitlist = self.interpret_state(state)
+        outstanding_treatments = waitlist + self.future_first_appts.sum(axis=0)
         cost = (self.holding_cost * outstanding_treatments).sum() + self.overtime_cost * np.maximum((bookings[0] + (action * self.treatment_pattern[0]).sum()) * self.duration - self.regular_capacity, 0)
         if t == self.decision_epoch:
             for i in range(1, len(bookings)):
@@ -61,17 +66,18 @@ class SchedulingEnv:
         return cost
 
     def post_allocation_state(self, state, action):
-        bookings, waitlist, future_first_appts = self.interpret_state(state)
-        next_first_appts = future_first_appts[0] if len(future_first_appts) > 0 else 0
+        bookings, waitlist = self.interpret_state(state)
+        next_first_appts = self.future_first_appts[0] if len(self.future_first_appts) > 0 else 0
         next_bookings = numpy_shift(bookings + (self.treatment_pattern * (action + next_first_appts)).sum(axis=1), -1)
         next_waitlist = waitlist - action
-        return (next_bookings, next_waitlist, future_first_appts[1:])
+        self.future_first_appts = self.future_first_appts[1:]
+        return (next_bookings, next_waitlist)
 
     def transition_dynamic(self, state, action, t):
         cost = self.cost_fn(state, action, t)
         res = []
         for prob, delta in self.system_dynamic:
-            next_bookings, next_waitlist, new_future_first_appts = self.post_state(state, action)
+            next_bookings, next_waitlist = self.post_state(state, action)
             if t+1 > self.decision_epoch:
                 delta = np.zeros(self.num_types, dtype=int)
             next_waitlist += delta
@@ -81,7 +87,7 @@ class SchedulingEnv:
                 print(state)
                 print(action)
                 raise ValueError("Invalid action")
-            res.append([prob, (next_bookings, next_waitlist, new_future_first_appts), cost, done])
+            res.append([prob, (next_bookings, next_waitlist), cost, done])
         return res
 
     def reset(self):
@@ -89,20 +95,21 @@ class SchedulingEnv:
         self.t = 1
         booked_slots = np.array([0 for _ in range(self.num_sessions)])
         demand = np.array([0 for _ in range(self.num_types)])
-        future_appts = np.array([[0 for _ in range(self.num_types)] for _ in range(self.decision_epoch)])
-        self.state = (booked_slots, demand, future_appts)
-        return self.interpret_state(self.state), {}
+        self.future_first_appts = copy.deepcopy(self.future_first_appts_copy)
+        self.state = (booked_slots, demand)
+        return np.concatenate(self.interpret_state(self.state)), {"future_appointment": copy.deepcopy(self.future_first_appts)}
+
     def step(self, action):
         cost = self.cost_fn(self.state, action, self.t)
-        next_bookings, next_waitlist, new_future_first_appts = self.post_state(self.state, action)
+        next_bookings, next_waitlist = self.post_state(self.state, action)
         selected_index = np.random.choice(len(self.arrivals), p=self.probabilities)
         delta = self.arrivals[selected_index]
         next_waitlist += delta
         self.t += 1
-        self.state = (next_bookings, next_waitlist, new_future_first_appts)
+        self.state = (next_bookings, next_waitlist)
         done = self.t == self.decision_epoch
         # state, cost, is_done, is_truncate, info
-        return self.interpret_state(self.state), cost, done, False, {}
+        return np.concatenate(self.interpret_state(self.state)), cost, done, False, {"future_appointment": copy.deepcopy(self.future_first_appts)}
 
 
 if __name__ == "__main__":
@@ -135,7 +142,7 @@ if __name__ == "__main__":
                  problem_type='allocation'
     )
     prev_state, info = env.reset()
-    portfolio_value = []
+    print(prev_state, info)
     total_reward = 0
     for time_step in range(100):
         action = np.array([0, 0])
