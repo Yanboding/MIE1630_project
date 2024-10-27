@@ -2,7 +2,12 @@ import copy
 
 import numpy as np
 import tensorflow as tf
-from .utils import numpy_shift, get_valid_advance_actions, get_valid_allocation_actions
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils import numpy_shift, get_valid_advance_actions, get_valid_allocation_actions
+
 
 class SchedulingEnv:
     def __init__(self,
@@ -58,18 +63,16 @@ class SchedulingEnv:
     def allocation_cost(self, state, action, t):
         bookings, waitlist = self.interpret_state(state)
         outstanding_treatments = waitlist + np.sum(self.future_first_appts, axis=0) 
-        cost = tf.reduce_sum(self.holding_cost * outstanding_treatments)
+        cost = tf.cast(tf.reduce_sum(self.holding_cost * outstanding_treatments), dtype=tf.float32)
         overtime = tf.maximum((bookings[0] + np.sum(action * self.treatment_pattern[0])) * self.duration - self.regular_capacity, 0)
-        cost += self.overtime_cost * overtime
+        cost +=  tf.cast(self.overtime_cost, dtype=tf.float32) * tf.cast(overtime, dtype=tf.float32)
         if t == self.decision_epoch:
             for i in range(1, len(bookings)):
-                discounted_overtime = self.discount_factor ** i * self.overtime_cost * tf.maximum(
+                discounted_overtime = self.discount_factor ** i * tf.cast(self.overtime_cost, dtype=tf.float32) * tf.maximum(
                     (bookings[i] + np.sum(action * self.treatment_pattern[i])) * self.duration - self.regular_capacity, 0)
                 cost += discounted_overtime
-        print(self.holding_cost.shape)
-        print(outstanding_treatments.shape)
         return cost
-
+    
     def post_allocation_state(self, state, action):
         bookings, waitlist = self.interpret_state(state)
         next_first_appts = self.future_first_appts[0] if len(self.future_first_appts) > 0 else 0
@@ -115,3 +118,7 @@ class SchedulingEnv:
         done = self.t == self.decision_epoch
         # state, cost, is_done, is_truncate, info
         return np.concatenate(self.interpret_state(self.state)), cost, done, False, {"future_appointment": copy.deepcopy(self.future_first_appts)}
+
+
+
+ 
