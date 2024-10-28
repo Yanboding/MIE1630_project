@@ -6,24 +6,19 @@ from environment import SchedulingEnv
 from decision_maker import OptimalAgent
 from utils import get_system_dynamic
 
-treatment_patterns = np.array([[1], [1]]).T
-num_tracking_days, num_types = treatment_patterns.shape
-'''
-arrival_mean = 3
-type_proportion = [0.1, 0.9]
+treatment_patterns = np.array([[2,1,0], [1,0,1], [0,1,2]]).T
+
+arrival_mean = 5
+type_proportion = [0.2, 0.3, 0.5]
 system_dynamic = get_system_dynamic(arrival_mean, arrival_mean*3, list(type_proportion))
-'''
-system_dynamic = [[1, np.array([0, 0])]]
-print(system_dynamic)
-holding_cost = np.array([1, 1])
-overtime_cost = 3
+
+holding_cost = np.array([10, 5, 8])
+overtime_cost = 30
 duration = 1
-regular_capacity = 2
+regular_capacity = 5
 discount_factor = 0.99
 
-future_appts = np.array([[0, 0],[0,0]])
-init_state = (np.array([0]), np.array([2, 0]), future_appts)
-decision_epoch = len(future_appts)
+decision_epoch = 15
 
 env = SchedulingEnv(
              treatment_pattern=treatment_patterns,
@@ -38,13 +33,18 @@ env = SchedulingEnv(
 )
 
 optimal_agent = OptimalAgent(env, discount_factor)
+init_state = (np.array([0,0,0]), np.array([1, 2, 3]))
+optimal_agent.train(init_state, 1)
+print(optimal_agent.policy(init_state, 1), optimal_agent.get_state_value(init_state, 1))
+'''
 #optimal_agent.load('.')
-for w1 in [0,2]:
-    for w2 in [0,2]:
-        init_state = (np.array([0, 0]), np.array([w1, w2]), future_appts)
+for w1 in range(10):
+    for w2 in range(10):
+        init_state = (np.array([0,0,0]), np.array([1, 2,3]))
         optimal_agent.train(init_state, 1)
         optimal_agent.save('.')
         optimal_agent.action_value_3d_plot(init_state, 1)
         print(optimal_agent.policy(init_state, 1), optimal_agent.get_state_value(init_state, 1))
         print(optimal_agent.get_action_values(init_state, 1))
+'''
 

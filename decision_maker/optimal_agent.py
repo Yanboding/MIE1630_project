@@ -115,7 +115,7 @@ class OptimalAgent:
     def action_value_3d_plot(self, state, t):
         plt.ion()
 
-        _, demand, _ = state
+        _, demand = state
         state_tuple = iter_to_tuple(state)
         x = []
         y = []
