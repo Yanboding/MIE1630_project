@@ -42,5 +42,5 @@ if __name__ == "__main__":
     # For some reasons optimal agent does not work, will investigate later. 
     optimal_agent = OptimalAgent(env, discount_factor)
 
-    initial_state, _ = env.reset()
+    initial_state = (np.array([0, 0, 0]), np.array([1, 2, 3]))
     optimal_agent.train(initial_state, t=0)

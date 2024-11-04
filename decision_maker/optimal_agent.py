@@ -1,5 +1,9 @@
 import os
 from collections import defaultdict
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils import iter_to_tuple, convert_str_keys_to_tuple, convert_tuple_keys_to_str, keep_significant_digits
 import numpy as np
 import matplotlib.pyplot as plt
@@ -115,7 +119,7 @@ class OptimalAgent:
     def action_value_3d_plot(self, state, t):
         plt.ion()
 
-        _, demand, _ = state
+        _, demand = state
         state_tuple = iter_to_tuple(state)
         x = []
         y = []
@@ -182,4 +186,3 @@ class OptimalAgent:
         # Show the plot
         plt.savefig(str(t) + '.png')
         plt.show()
-

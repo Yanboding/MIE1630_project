@@ -2,6 +2,11 @@ from pprint import pprint
 
 import numpy as np
 
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from environment import SchedulingEnv
 from decision_maker import OptimalAgent
 from utils import get_system_dynamic
@@ -41,7 +46,7 @@ optimal_agent = OptimalAgent(env, discount_factor)
 #optimal_agent.load('.')
 for w1 in [0,2]:
     for w2 in [0,2]:
-        init_state = (np.array([0, 0]), np.array([w1, w2]), future_appts)
+        init_state = (np.array([0]), np.array([w1, w2]))
         optimal_agent.train(init_state, 1)
         optimal_agent.save('.')
         optimal_agent.action_value_3d_plot(init_state, 1)

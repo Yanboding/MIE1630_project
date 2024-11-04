@@ -39,6 +39,7 @@ class SchedulingEnv:
         self.num_sessions, self.num_types = treatment_pattern.shape
         if future_first_appts == None:
             future_first_appts = np.array([[0]*self.num_types for _ in range(decision_epoch)])
+            print(future_first_appts)
             self.future_first_appts = future_first_appts
             self.future_first_appts_copy = copy.deepcopy(future_first_appts)
         self.probabilities = [item[0] for item in system_dynamic]

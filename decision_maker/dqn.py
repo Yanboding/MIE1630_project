@@ -7,7 +7,7 @@ import random
 from collections import deque
 
 class DQNAgent:
-    def __init__(self, state_size, action_size, discount_factor=0.99, learning_rate=1e-3, batch_size=256, epsilon=0.8, epsilon_decay=0.9, epsilon_min=0.01, target_update=50):
+    def __init__(self, state_size, action_size, discount_factor=0.99, learning_rate=1e-3, batch_size=256, epsilon=0.1, epsilon_decay=0.95, epsilon_min=0.01, target_update=50):
         self.state_size = state_size
         self.action_size = action_size
         self.discount_factor = discount_factor
