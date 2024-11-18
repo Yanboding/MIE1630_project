@@ -30,10 +30,16 @@ def conjugate_gradients(Avp, b, nsteps, residual_tol=1e-10, device=torch.device(
 
 class BAC:
 
-    def __init__(self, env, state_dim, action_dim, actor, critic, discount, tau, advantage_flag, actor_args={},
-                 critic_args={},
+    def __init__(self, env, actor, critic, discount, tau, advantage_flag, actor_args=None,
+                 critic_args=None,
                  actor_lr=3e-3, critic_lr=2e-2, likelihood_noise_level=1e-4):
+        if critic_args is None:
+            critic_args = {}
+        if actor_args is None:
+            actor_args = {}
         self.env = env
+        state_dim = env.state_dim
+        action_dim = env.action_dim
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.actor = actor(state_dim, action_dim, **actor_args).to(self.device)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=actor_lr)

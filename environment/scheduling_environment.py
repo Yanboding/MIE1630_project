@@ -39,6 +39,9 @@ class SchedulingEnv:
         self.probabilities = [item[0] for item in system_dynamic]
         self.arrivals = [item[1] for item in system_dynamic]
 
+        self.state_dim = self.num_sessions + self.num_types
+        self.action_dim = self.num_types
+
     def interpret_state(self, state):
         '''
         (number of bookings, waitlist, future first appointments)
