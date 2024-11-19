@@ -1,7 +1,7 @@
 import numpy as np
 
 from environment import SchedulingEnv
-from decision_maker import BAC
+from decision_maker import BAC, OptimalAgent
 from models import Value, MLPFeatureExtractor
 from models.mlp_policy_disc import DiscretePolicy
 from utils import ContinuousMemory
@@ -22,8 +22,8 @@ def interoperate_agent_spec(agent_spec, env):
     discount = agent_spec['discount']
     tau = agent_spec['tau']
     advantage_flag = agent_spec['advantage_flag']
-    actor_args = {'feature_extractor': feature_extractor}
-    critic_args = {'fisher_num_inputs': agent_spec['fisher_num_inputs'], 'feature_extractor': feature_extractor}
+    actor_args = {}
+    critic_args = {'fisher_num_inputs': agent_spec['fisher_num_inputs']}
     actor_lr = agent_spec['actor_lr']
     critic_lr = agent_spec['critic_lr']
     likelihood_noise_level = agent_spec['likelihood_noise_level']
@@ -63,22 +63,29 @@ def run(env_spec, agent_spec):
         future_first_appts=future_first_appts,
         problem_type=problem_type
     )
+    optimal_agent = OptimalAgent(env, discount_factor)
+    init_state = (np.array([0, 0]), np.array([0, 0]))
+    # optimal_agent.load('./decision_epoch_5')
+    optimal_agent.train(init_state, 1)
+    # optimal_agent.save('.')
+    print(optimal_agent.policy(init_state, 1), optimal_agent.get_state_value(init_state, 1))
     agent = interoperate_agent_spec(agent_spec, env)
     batch_size = 15
     max_time_steps = 1000
     memory = ContinuousMemory(env.state_dim, env.action_dim, batch_size * max_time_steps)
     train_spec = {
-        'env': env,
-        'epoch_num': 15000,
+        'epoch_num': 500,
         'max_time_steps': max_time_steps,
         'batch_size': batch_size,
         'replay_memory': memory,
-        'svd_low_rank': agent_spec['critic_args']['fisher_num_inputs'],
+        'svd_low_rank': agent_spec['fisher_num_inputs'],
         'state_coefficient': 1,
         'fisher_coefficient': 5e-5
     }
     total_rewards = agent.train(**train_spec)
+    return total_rewards
 
+def plot1()
 
 
 
@@ -102,9 +109,10 @@ if __name__ == "__main__":
         'tau': 0.97,
         'advantage_flag': False,
         'feature_extractor': 'MLPFeatureExtractor',
-        'fisher_num_inputs': 50,
+        'fisher_num_inputs': 20,
         'actor_lr': 3e-3,
         'critic_lr': 2e-2,
         'likelihood_noise_level': 1e-4
     }
-    run(env_spec, agent_spec)
+    total_rewards = run(env_spec, agent_spec)
+    print(total_rewards)

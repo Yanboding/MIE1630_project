@@ -14,7 +14,6 @@ def pca_U(k, A, model, device):
     # total number of elements in parameters
     # Returns the total number of elements in the input tensor
     m = sum(p.numel() for p in model.parameters() if p.requires_grad)
-
     assert k > 0
     assert k <= min(m, n)
     assert l >= k

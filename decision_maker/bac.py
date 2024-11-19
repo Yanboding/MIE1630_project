@@ -38,16 +38,14 @@ class BAC:
         if actor_args is None:
             actor_args = {}
         self.env = env
-        state_dim = env.state_dim
-        action_dim = env.action_dim
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.actor = actor(state_dim, action_dim, **actor_args).to(self.device)
+        self.actor = actor(env, **actor_args).to(self.device)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=actor_lr)
 
         self.likelihood = gpytorch.likelihoods.GaussianLikelihood(
             noise_constraint=constraints.GreaterThan(likelihood_noise_level)).to(self.device)
         critic_args['gp_likelihood'] = self.likelihood
-        self.critic = critic(state_dim, action_dim, **critic_args).to(self.device)
+        self.critic = critic(env, **critic_args).to(self.device)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=critic_lr)
         # Used for computing GP critic's loss
         self.gp_mll = gpytorch.mlls.ExactMarginalLogLikelihood(self.likelihood, self.critic)
@@ -65,12 +63,13 @@ class BAC:
         self.advantage_flag = advantage_flag
 
     def select_action(self, state, train=True):
-        state = torch.tensor(state.reshape(1, *state.shape)).to(self.device)
+        state = torch.tensor(state.reshape(1, *state.shape), dtype=torch.float32).to(self.device)
         action = self.actor.select_action(state, train)
         return action.cpu().data.numpy().flatten()
 
     def update(self, replay_memory, svd_low_rank, state_coefficient, fisher_coefficient):
         states, actions, next_states, rewards, masks = replay_memory.sample()
+        #print(replay_memory)
         memory_size = rewards.size(0)
         returns = torch.Tensor(actions.size(0), 1).to(self.device)
         prev_return = 0
@@ -107,7 +106,7 @@ class BAC:
         # A_{m by n} = U_{m by m} S_{m by n} V_{n by n}
         u_fb_t, s_fb_t, v_fb_t = fast_svd.pca_U(svd_low_rank, U_prob.squeeze(-1), self.actor, self.device)
         v_tens = v_fb_t.transpose(1, 0)
-        GP_inputs = torch.cat([states.reshape(memory_size, -1), v_tens], 1)
+        GP_inputs = torch.cat([states, v_tens], 1)
         # Optimize the critic
         # features: [state, pca_state_action_probability], target: returns or advantages.
         self.critic.set_train_data(GP_inputs, targets.squeeze(-1), strict=False)
@@ -145,18 +144,19 @@ class BAC:
 
     def train(self, epoch_num, max_time_steps, batch_size, replay_memory, svd_low_rank, state_coefficient, fisher_coefficient):
         weight_file = os.path.realpath(__file__). \
-            replace(os.path.join('agents', 'bac.py'), os.path.join('agents', 'weights'))
-        running_state = ZFilter(self.env.observation_space.shape)
+            replace(os.path.join('decision_maker', 'bac.py'), os.path.join('decision_maker', 'weights'))
+        # running_state = ZFilter(self.env.state_shape)
         total_rewards = []
         for e in tqdm(range(1, epoch_num + 1)):
             prev_state, info = self.env.reset()
-            prev_state = running_state(prev_state)
+            # prev_state = running_state(prev_state)
             total_reward = 0
             for time_step in range(max_time_steps):
                 action = self.select_action(prev_state)
                 # observation, reward, terminated, truncated, info
                 state, reward, done, truncated, info = self.env.step(action)
-                state = running_state(state)
+                reward *= -1
+                # state = running_state(state)
                 replay_memory.add(prev_state, action, state, reward, done)
                 # Train agent after collecting sufficient data
                 if time_step % 5 == 0:
@@ -165,6 +165,7 @@ class BAC:
                 total_reward += reward
                 if done or truncated:
                     break
+            print(total_reward)
             if e % batch_size == 0:
                 self.update(replay_memory, svd_low_rank, state_coefficient, fisher_coefficient)
                 replay_memory.reset()
@@ -174,7 +175,6 @@ class BAC:
     def save(self, filename='weights/'):
         if not os.path.exists(filename):
             os.makedirs(filename)
-            os.path.join(filename, "bac_critic")
         torch.save(self.critic.state_dict(), os.path.join(filename, "bac_critic"))
         torch.save(self.critic_optimizer.state_dict(), os.path.join(filename, "bac_critic_optimizer"))
 

@@ -38,9 +38,11 @@ class SchedulingEnv:
             self.future_first_appts_copy = copy.deepcopy(future_first_appts)
         self.probabilities = [item[0] for item in system_dynamic]
         self.arrivals = [item[1] for item in system_dynamic]
+        self.maximum_allocation = np.max(self.arrivals, axis=0)*decision_epoch
 
         self.state_dim = self.num_sessions + self.num_types
         self.action_dim = self.num_types
+        self.state_shape = (self.state_dim, )
 
     def interpret_state(self, state):
         '''
@@ -144,15 +146,6 @@ if __name__ == "__main__":
                  discount_factor=0.99,
                  problem_type='allocation'
     )
-    prev_state, info = env.reset()
-    print(prev_state, info)
-    total_reward = 0
-    for time_step in range(100):
-        action = np.array([0, 0])
-        # observation, reward, terminated, truncated, info
-        state, reward, done, truncated, info = env.step(action)
-        prev_state = state
-        total_reward += reward
-        if done or truncated:
-            break
-    print(total_reward)
+    arrivals = env.arrivals
+    print(arrivals)
+    print(type(np.max(arrivals, axis=0)))

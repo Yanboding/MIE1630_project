@@ -7,9 +7,9 @@ class ContinuousMemory(object):
         self.ptr = 0
         self.size = 0
 
-        self.state = np.zeros((max_size, *state_dim))
-        self.action = np.zeros((max_size, *action_dim))
-        self.next_state = np.zeros((max_size, *state_dim))
+        self.state = np.zeros((max_size, state_dim))
+        self.action = np.zeros((max_size, action_dim))
+        self.next_state = np.zeros((max_size, state_dim))
         self.reward = np.zeros((max_size, 1))
         self.not_done = np.zeros((max_size, 1))
 
@@ -27,11 +27,11 @@ class ContinuousMemory(object):
     def sample(self):
 
         return (
-            torch.tensor(self.state[:self.ptr]).to(self.device),
-            torch.tensor(self.action[:self.ptr]).to(self.device),
-            torch.tensor(self.next_state[:self.ptr]).to(self.device),
-            torch.tensor(self.reward[:self.ptr]).to(self.device),
-            torch.tensor(self.not_done[:self.ptr]).to(self.device)
+            torch.tensor(self.state[:self.ptr], dtype=torch.float32).to(self.device),
+            torch.tensor(self.action[:self.ptr], dtype=torch.float32).to(self.device),
+            torch.tensor(self.next_state[:self.ptr], dtype=torch.float32).to(self.device),
+            torch.tensor(self.reward[:self.ptr], dtype=torch.float32).to(self.device),
+            torch.tensor(self.not_done[:self.ptr], dtype=torch.float32).to(self.device)
         )
 
     def reset(self):
