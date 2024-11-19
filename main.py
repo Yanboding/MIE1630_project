@@ -1,52 +1,58 @@
 import numpy as np
-import argparse
-import json
-from scipy.stats import poisson
 
 from environment import SchedulingEnv
 from decision_maker import BAC
+from models import Value, MLPFeatureExtractor
+from models.mlp_policy_disc import DiscretePolicy
+from utils import ContinuousMemory
 
+def interoperate_agent_spec(agent_spec, env):
+    if agent_spec['actor'] == 'MLPDiscrete':
+        actor = DiscretePolicy
+    else:
+        raise ValueError('Not implement')
+    if agent_spec['critic'] == 'BACCritic':
+        critic = Value
+    else:
+        raise ValueError('Not implement')
+    if agent_spec['feature_extractor'] == 'MLPFeatureExtractor':
+        feature_extractor = MLPFeatureExtractor
+    else:
+        raise ValueError('Not implement')
+    discount = agent_spec['discount']
+    tau = agent_spec['tau']
+    advantage_flag = agent_spec['advantage_flag']
+    actor_args = {'feature_extractor': feature_extractor}
+    critic_args = {'fisher_num_inputs': agent_spec['fisher_num_inputs'], 'feature_extractor': feature_extractor}
+    actor_lr = agent_spec['actor_lr']
+    critic_lr = agent_spec['critic_lr']
+    likelihood_noise_level = agent_spec['likelihood_noise_level']
+    agent = BAC(env,
+                actor=actor,
+                critic=critic,
+                discount=discount,
+                tau=tau,
+                advantage_flag=advantage_flag,
+                actor_args=actor_args,
+                critic_args=critic_args,
+                actor_lr=actor_lr,
+                critic_lr=critic_lr,
+                likelihood_noise_level=likelihood_noise_level)
+    return agent
 
-def get_system_dynamic(mean_arrival, maximum_arrival, type_probs):
-    total_poisson = poisson(mean_arrival)
-    poisson_by_type = [poisson(mean_arrival*p) for p in type_probs]
-    system_dynamic = []
-    def calculate_transition_dynamic(arrival_by_type):
-        prob = 1
-        for num, dis in zip(arrival_by_type, poisson_by_type):
-            prob *= dis.pmf(num)
-        prob /= total_poisson.cdf(maximum_arrival)
-        return [prob, np.array(arrival_by_type)]
-    def get_transition_dynamic(x, y):
-        def backtracking(x, y, current_combination):
-            if y == 0:
-                if x == 0:
-                    all_combinations.append(calculate_transition_dynamic(current_combination.copy()))
-                return
-
-            for i in range(x + 1):
-                current_combination.append(i)
-                backtracking(x - i, y - 1, current_combination)
-                current_combination.pop()
-
-        all_combinations = []
-        backtracking(x, y, [])
-        return all_combinations
-    for total_arrival in range(maximum_arrival+1):
-        system_dynamic += get_transition_dynamic(total_arrival, len(type_probs))
-    return system_dynamic
-
-def study_1(regular_capacity, arrival_ratio, type_proportion, decision_epoch, capacity_booked):
-    treatment_patterns = np.array([[1], [1]]).T
-    arrival_mean = int(regular_capacity * arrival_ratio)
-    system_dynamic = get_system_dynamic(arrival_mean, arrival_mean * 3, list(type_proportion))
-    holding_cost = np.array([10, 5])
-    overtime_cost = 30
-    duration = 1
-    discount_factor = 0.99
-
-    allocation_scheduling_env = SchedulingEnv(
-        treatment_pattern=treatment_patterns,
+def run(env_spec, agent_spec):
+    treatment_pattern = np.array(env_spec['treatment_pattern']).T
+    decision_epoch = env_spec['decision_epoch']
+    system_dynamic = [[prob, np.array(delta)] for prob, delta in env_spec['system_dynamic']]
+    holding_cost = np.array(env_spec['holding_cost'])
+    overtime_cost = env_spec['overtime_cost']
+    duration = env_spec['duration']
+    regular_capacity = env_spec['regular_capacity']
+    discount_factor = env_spec['discount_factor']
+    future_first_appts = env_spec.get('future_first_appts', None)
+    problem_type = env_spec['problem_type']
+    env = SchedulingEnv(
+        treatment_pattern=treatment_pattern,
         decision_epoch=decision_epoch,
         system_dynamic=system_dynamic,
         holding_cost=holding_cost,
@@ -54,61 +60,13 @@ def study_1(regular_capacity, arrival_ratio, type_proportion, decision_epoch, ca
         duration=duration,
         regular_capacity=regular_capacity,
         discount_factor=discount_factor,
-        problem_type='allocation'
+        future_first_appts=future_first_appts,
+        problem_type=problem_type
     )
-    optimal_agent = BAC(allocation_scheduling_env, )
-    prev_state, info = allocation_scheduling_env.reset()
-    total_reward = 0
-    for time_step in range(100):
-        action = np.array([0, 0])
-        # observation, reward, terminated, truncated, info
-        state, reward, done, truncated, info = allocation_scheduling_env.step(action)
-        prev_state = state
-        total_reward += reward
-        if done or truncated:
-            break
-    print(total_reward)
-
-
-
-if __name__ == "__main__":
-    env_spec = {
-        'episode_length': 128,
-        'commission_rate': 0,
-        'period': '30m',
-        'coins': ['BTC', 'ETH', 'XRP', 'BNB', 'ADA'],
-        'online': False,
-        'features': ['close', 'high', 'low'],
-        'baseAsset': 'USDT'
-    }
-    times = ['2018-06-01', '2020-06-01', '2021-06-01', '2022-12-31']
-    start, end = 0, 1
-    envs = []
-    for end in range(1, len(times)):
-        env_spec['start'], env_spec['end'] = times[end - 1], times[end]
-        e = TradingEnvWrapper(**env_spec)
-        envs.append(e)
-    env = envs[0]
-    state_dim, action_dim = env.observation_space.shape, env.action_space.shape
-    feature_extractor = CNNFeatureExtractor(state_dim)
-    agent_spec = {
-        'state_dim': state_dim,
-        'action_dim': action_dim,
-        'actor': CNNActor,
-        'critic': Value,
-        'discount': 0.995,
-        'tau': 0.97,
-        'advantage_flag': False,
-        'actor_args': {'feature_extractor': feature_extractor},
-        'critic_args': {'fisher_num_inputs': 50, 'feature_extractor': feature_extractor},
-        'actor_lr': 3e-3,
-        'critic_lr': 2e-2,
-        'likelihood_noise_level': 1e-4
-    }
-    agent = BAC(**agent_spec)
+    agent = interoperate_agent_spec(agent_spec, env)
     batch_size = 15
     max_time_steps = 1000
-    memory = ContinuousMemory(state_dim, action_dim, batch_size * max_time_steps)
+    memory = ContinuousMemory(env.state_dim, env.action_dim, batch_size * max_time_steps)
     train_spec = {
         'env': env,
         'epoch_num': 15000,
@@ -119,13 +77,34 @@ if __name__ == "__main__":
         'state_coefficient': 1,
         'fisher_coefficient': 5e-5
     }
-    total_rewards = agent.fit(**train_spec)
-    plot_total_reward(total_rewards)
+    total_rewards = agent.train(**train_spec)
 
-    backtest_spec = {
-        'test_envs': envs,
-        'agent': agent,
-        'eval_times': 200,
-        'metrics': ['total_rewards', 'portfolio_values']
+
+
+
+if __name__ == "__main__":
+    env_spec = {
+        'treatment_pattern': [[2, 1],
+                              [1, 0]],
+        'decision_epoch': 10,
+        'system_dynamic': [[0.5, [2, 0]], [0.5, [2, 2]]],
+        'holding_cost': [10, 5],
+        'overtime_cost': 30,
+        'duration': 1,
+        'regular_capacity': 5,
+        'discount_factor': 0.99,
+        'problem_type': 'allocation'
     }
-    backtest(**backtest_spec)
+    agent_spec = {
+        'actor': 'MLPDiscrete',
+        'critic': 'BACCritic',
+        'discount': 0.99,
+        'tau': 0.97,
+        'advantage_flag': False,
+        'feature_extractor': 'MLPFeatureExtractor',
+        'fisher_num_inputs': 50,
+        'actor_lr': 3e-3,
+        'critic_lr': 2e-2,
+        'likelihood_noise_level': 1e-4
+    }
+    run(env_spec, agent_spec)

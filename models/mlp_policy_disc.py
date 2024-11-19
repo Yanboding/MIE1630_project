@@ -6,10 +6,9 @@ from utils import compute_flat_grad
 
 
 class DiscretePolicy(nn.Module):
-    def __init__(self, state_dim, action_dim, action_num, hidden_size=(128, 128), activation='tanh'):
+    def __init__(self, state_dim, action_num, hidden_size=(128, 128), activation='tanh', feature_extractor=None):
         super().__init__()
         self.state_dim = state_dim
-        self.action_dim = action_dim
         self.action_num = action_num
         if activation == 'tanh':
             self.activation = torch.tanh
@@ -29,6 +28,21 @@ class DiscretePolicy(nn.Module):
         self.action_head.bias.data.mul_(0.0)
 
     def forward(self, states, action_masks=None):
+        '''
+        5, 5
+        [0, 0]
+        [0, 1]
+        [0, 2]
+        [0, 3]
+        [0, 4]
+        [0, 5]
+        [1, 0]
+        [1, 1]
+        [1, 2]
+        [1, 3]
+        [1, 4]
+        [1, 5]
+        '''
         if action_masks is None:
             action_masks = torch.tensor([True])
         for affine in self.affine_layers:
