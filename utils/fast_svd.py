@@ -14,9 +14,9 @@ def pca_U(k, A, model, device):
     # total number of elements in parameters
     # Returns the total number of elements in the input tensor
     m = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    assert k > 0
-    assert k <= min(m, n)
-    assert l >= k
+    #assert k > 0
+    #assert k <= min(m, n)
+    #assert l >= k
     # (l, m)
     R = 2 * (torch.rand(l, m).to(device) - 0.5)
     Q = []
@@ -37,8 +37,10 @@ def pca_U(k, A, model, device):
                                     create_graph=True)
         Q.append(torch.cat([grad.reshape(-1) for grad in grads]).unsqueeze(0))
     Q = torch.cat(Q).transpose(1, 0)
+    print(Q.shape)
     # Q is the orthogonal matrix, and R is the upper triangular matrix to solve linear equations and eigenvalue problems.
     (Q, _) = torch.linalg.qr(Q, 'reduced')
+    print(Q)
     final_prod = []
     for col_vectors in Q.transpose(1, 0):
         grads = torch.autograd.grad(
@@ -50,4 +52,4 @@ def pca_U(k, A, model, device):
     (U, s, Ra) = torch.svd(final_prod)
     Ra = Ra.transpose(1, 0)
     Va = torch.matmul(Ra, Q.transpose(1, 0))
-    return U[:, :k].detach(), s[:k].detach(), Va[:k, :].detach()
+    return U[:, :].detach(), s[:k].detach(), Va[:, :].detach()

@@ -2,6 +2,7 @@ import os
 
 import gpytorch
 import gpytorch.constraints as constraints
+import numpy as np
 import torch
 from tqdm import tqdm
 
@@ -62,13 +63,16 @@ class BAC:
         self.tau = tau
         self.advantage_flag = advantage_flag
 
-    def select_action(self, state, train=True):
+    def policy(self, state, t, train=False):
+        state = np.append(state, t)
         state = torch.tensor(state.reshape(1, *state.shape), dtype=torch.float32).to(self.device)
         action = self.actor.select_action(state, train)
         return action.cpu().data.numpy().flatten()
 
     def update(self, replay_memory, svd_low_rank, state_coefficient, fisher_coefficient):
-        states, actions, next_states, rewards, masks = replay_memory.sample()
+        states, actions, next_states, rewards, masks, times = replay_memory.sample()
+        states = torch.cat([states, times], dim=1)
+        # concatinate
         #print(replay_memory)
         memory_size = rewards.size(0)
         returns = torch.Tensor(actions.size(0), 1).to(self.device)
@@ -81,6 +85,7 @@ class BAC:
             prev_value = 0
             prev_advantage = 0
         for i in reversed(range(memory_size)):
+            print('time_step:', times[i])
             returns[i] = rewards[i] + self.discount * prev_return * masks[i]
             prev_return = returns[i, 0]
             if self.advantage_flag:
@@ -152,12 +157,12 @@ class BAC:
             # prev_state = running_state(prev_state)
             total_reward = 0
             for time_step in range(max_time_steps):
-                action = self.select_action(prev_state)
+                action = self.policy(prev_state, time_step, train=True)
                 # observation, reward, terminated, truncated, info
                 state, reward, done, truncated, info = self.env.step(action)
                 reward *= -1
                 # state = running_state(state)
-                replay_memory.add(prev_state, action, state, reward, done)
+                replay_memory.add(prev_state, action, state, reward, done, time_step)
                 # Train agent after collecting sufficient data
                 if time_step % 5 == 0:
                     self.save(weight_file)
@@ -165,8 +170,8 @@ class BAC:
                 total_reward += reward
                 if done or truncated:
                     break
-            print(total_reward)
             if e % batch_size == 0:
+                print(e)
                 self.update(replay_memory, svd_low_rank, state_coefficient, fisher_coefficient)
                 replay_memory.reset()
             total_rewards.append(total_reward)
@@ -189,3 +194,7 @@ class BAC:
         self.actor_optimizer.load_state_dict(torch.load(os.path.join(filename, "bac_actor_optimizer")))
 
 
+if __name__ == "__main__":
+    states = torch.tensor([[1,2], [3,4]], dtype=torch.float32)
+    times = torch.tensor([[1], [2]], dtype=torch.float32)
+    print(torch.cat([states, times], dim=1))

@@ -38,11 +38,13 @@ class SchedulingEnv:
             self.future_first_appts_copy = copy.deepcopy(future_first_appts)
         self.probabilities = [item[0] for item in system_dynamic]
         self.arrivals = [item[1] for item in system_dynamic]
-        self.maximum_allocation = np.max(self.arrivals, axis=0)*decision_epoch
+        self.maximum_allocation = np.max(self.arrivals, axis=0)*decision_epoch + np.array([10,10])
 
         self.state_dim = self.num_sessions + self.num_types
         self.action_dim = self.num_types
         self.state_shape = (self.state_dim, )
+
+        np.random.seed(42)
 
     def interpret_state(self, state):
         '''
@@ -50,7 +52,7 @@ class SchedulingEnv:
         :param state:
         :return:
         '''
-        bookings, waitlist = state
+        bookings, waitlist = state[:self.num_sessions], state[self.num_sessions:]
         return copy.deepcopy(bookings), copy.deepcopy(waitlist)
 
     def valid_allocation_actions(self, state, t):
@@ -92,16 +94,13 @@ class SchedulingEnv:
                 print(state)
                 print(action)
                 raise ValueError("Invalid action")
-            res.append([prob, (next_bookings, next_waitlist), cost, done])
+            res.append([prob, np.concatenate([next_bookings, next_waitlist]), cost, done])
         return res
 
-    def reset(self):
-        np.random.seed(42)
-        self.t = 1
-        booked_slots = np.array([0 for _ in range(self.num_sessions)])
-        demand = np.array([0 for _ in range(self.num_types)])
+    def reset(self, init_state, t):
+        self.t = t
+        self.state = np.array(init_state)
         self.future_first_appts = copy.deepcopy(self.future_first_appts_copy)
-        self.state = (booked_slots, demand)
         return np.concatenate(self.interpret_state(self.state)), {"future_appointment": copy.deepcopy(self.future_first_appts)}
 
     def step(self, action):
@@ -111,7 +110,7 @@ class SchedulingEnv:
         delta = self.arrivals[selected_index]
         next_waitlist += delta
         self.t += 1
-        self.state = (next_bookings, next_waitlist)
+        self.state = np.concatenate([next_bookings, next_waitlist])
         done = self.t == self.decision_epoch
         # state, cost, is_done, is_truncate, info
         return np.concatenate(self.interpret_state(self.state)), cost, done, False, {"future_appointment": copy.deepcopy(self.future_first_appts)}
@@ -146,6 +145,5 @@ if __name__ == "__main__":
                  discount_factor=0.99,
                  problem_type='allocation'
     )
-    arrivals = env.arrivals
-    print(arrivals)
-    print(type(np.max(arrivals, axis=0)))
+    print(env.reset([0,0,5,5], 1))
+    #print(np.random.randint(0, 10, size=5))

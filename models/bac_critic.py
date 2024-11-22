@@ -15,12 +15,14 @@ class Value(gpytorch.models.ExactGP, nn.Module):
         # fisher_num_inputs is same as svd_low_rank, because of the linear approximation of the Fisher kernel through FastSVD.
         gpytorch.models.ExactGP.__init__(self, None, None, gp_likelihood)
         self.env = env
-        self.state_element_num = env.state_dim
+        # state_dim + 1 to include time dim
+        self.state_element_num = env.state_dim + 1
         self.action_element_num = env.action_dim
         NN_num_outputs = 10
         if feature_extractor:
             self.feature_extractor = feature_extractor
         else:
+            # add 1 to state_element_num
             self.feature_extractor = MLPFeatureExtractor(self.state_element_num, NN_num_outputs)
 
         self.scale_to_bounds = gpytorch.utils.grid.ScaleToBounds(-1, 1)
@@ -57,6 +59,7 @@ class Value(gpytorch.models.ExactGP, nn.Module):
     def forward(self, x, state_multiplier, fisher_multiplier, only_state_kernel=False):
         # Invokes the GP head for computing the action value function Q(s,a), although Q(s,a) is never explicitly computed.
         # Instead, we implicitly compute (K + sigma^2 I)^{-1}*A^{GAE} which subsequently provides the BQ's PG estimate.
+        # x is [state, v_ten]
         extracted_features = self.feature_extractor(x[:, :self.state_element_num])
         extracted_features = self.scale_to_bounds(extracted_features)
 
@@ -80,7 +83,7 @@ if __name__ == '__main__':
     import gpytorch.constraints as constraints
 
     num_sessions, num_types = 2, 2
-    env_state = np.array([2, 1, 5, 5])
+    env_state = np.array([2, 1, 5, 5, 2]) # state, time
     vaild_action = np.array([1, 2])
     states = torch.tensor(env_state.reshape(1, *env_state.shape), dtype=torch.float32)
     actions = torch.tensor(vaild_action.reshape(1, *vaild_action.shape), dtype=torch.float32)
