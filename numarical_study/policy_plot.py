@@ -9,16 +9,16 @@ from environment import SchedulingEnv
 from decision_maker import OptimalAgent, DQNAgent
 from utils import get_system_dynamic
 
-treatment_patterns = np.array([[2,1,0], [1,0,1]]).T
+treatment_patterns = np.array([[2,1], [1,0]]).T
 
 arrival_mean = 3
-type_proportion = [0.2, 0.8]
-system_dynamic = [[0.5, np.array([2,0])], [0.5, np.array([0,1])]]
+type_proportion = [0.5, 0.5]
+system_dynamic = get_system_dynamic(3, 4, [0.5, 0.5])
 
 holding_cost = np.array([10, 5])
 overtime_cost = 30
 duration = 1
-regular_capacity = 3
+regular_capacity = 2
 discount_factor = 0.99
 
 decision_epoch = 5
@@ -36,7 +36,7 @@ env = SchedulingEnv(
 )
 
 optimal_agent = OptimalAgent(env, discount_factor)
-init_state = (np.array([0,0,0]), np.array([0, 0]))
+init_state = (np.array([0,0]), np.array([0, 0]))
 optimal_agent.train(init_state, 1)
 print(optimal_agent.policy(init_state, 1), optimal_agent.get_state_value(init_state, 1))
 
@@ -59,4 +59,4 @@ state_size = prev_state.shape[0]
 action_size = 2
 rl_agent = DQNAgent(state_size, action_size, rl_env)
 
-rl_agent.train_dqn(1000, 5)
+rl_agent.train_dqn(1000, 10)

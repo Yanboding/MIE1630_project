@@ -9,7 +9,7 @@ from collections import deque
 tf.config.run_functions_eagerly(True)
 
 class DQNAgent:
-    def __init__(self, state_size, action_size, env, discount_factor=0.99, learning_rate=1e-3, batch_size=32, epsilon=0.25, epsilon_decay=0.999, epsilon_min=0.01, target_update=50):
+    def __init__(self, state_size, action_size, env, discount_factor=0.99, learning_rate=1e-3, batch_size=500, epsilon=0.25, epsilon_decay=0.999, epsilon_min=0.01, target_update=50):
         self.state_size = state_size
         self.action_size = action_size 
         self.env = env
@@ -20,7 +20,7 @@ class DQNAgent:
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
         self.target_update = target_update
-        self.replay_buffer = deque(maxlen=128)
+        self.replay_buffer = deque(maxlen=2000)
         self.q_network = self.build_network()
         self.target_network = self.build_network()
         self.update_target_network() 
@@ -89,7 +89,9 @@ class DQNAgent:
                 lower_bounds = tf.zeros_like(next_state[0][self.env.num_sessions:], dtype=tf.int32)
                 upper_bounds = tf.cast(next_state[0][self.env.num_sessions:], tf.int32) + 1
 
-                for _ in range(16):
+                feasible_action_size = np.prod(upper_bounds)
+                
+                for _ in range(feasible_action_size):
                     next_action = tf.stack([
                         tf.random.uniform(
                             shape=(),
@@ -116,6 +118,7 @@ class DQNAgent:
             self.epsilon *= self.epsilon_decay
 
     def train_dqn(self, episode = 1000, decision_epoch=5):
+        print("Begin Training")
         for i in range(episode):
             state, info = self.env.reset()
             total_reward = 0
@@ -132,3 +135,17 @@ class DQNAgent:
                 self.replay()
             if i % self.target_update == 0:
                 self.update_target_network()
+ 
+ 
+    #     print("Training Completed")
+    #     self.save_model("DQN.h5")
+
+    # def save_model(self, model_path):
+    #     self.q_network.save(model_path)
+    #     print(f"Model saved to {model_path}")
+    
+    # def load_model(self, model_path):
+    #     self.q_network = tf.keras.models.load_model(model_path)
+    #     print(f"Model loaded from {model_path}")
+    
+    
