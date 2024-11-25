@@ -1,20 +1,6 @@
 from pprint import pprint
-<<<<<<< HEAD
-'''
-Q_{\theta}(s,a) \in R
-q_network = f(s,a) s_size+a_size -> 1 
-min_q = inf
-best_actoin = None
-for action in env.valid_action(s):
-   q = q_network(s, action)
-   if q < min_q:
-      min_q = q
-      best_actoin = a
-'''
-=======
 import sys
 import os
->>>>>>> rl_baselines_charlie
 import numpy as np
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -22,58 +8,22 @@ from environment import SchedulingEnv
 from decision_maker import OptimalAgent, DQNAgent, PolicyEvaluator
 from utils import get_system_dynamic
 
-<<<<<<< HEAD
-treatment_patterns = np.array([[2,1,0], [1,0,1]]).T
-
-arrival_mean = 2
-type_proportion = [0.2, 0.8]
-system_dynamic = [[0.5, np.array([2,0])], [0.5, np.array([2,1])]]
-=======
 treatment_patterns = np.array([[2, 1], [1, 0]]).T
 arrival_mean = 3
 type_proportion = [0.5, 0.5]
 system_dynamic = get_system_dynamic(arrival_mean, 4, type_proportion)
->>>>>>> rl_baselines_charlie
 
 holding_cost = np.array([10, 5])
 overtime_cost = 30
 duration = 1
-<<<<<<< HEAD
-regular_capacity = 3
-discount_factor = 0.99
-
-decision_epoch = 5
-=======
 
 evaluation_results = []
->>>>>>> rl_baselines_charlie
 
 for i in range(0, 1):
     regular_capacity = 2
     discount_factor = 0.99
     decision_epoch = 7
 
-<<<<<<< HEAD
-optimal_agent = OptimalAgent(env, discount_factor)
-init_state = np.array([0,0,0,1,2])
-#optimal_agent.load('./decision_epoch_5')
-optimal_agent.train(init_state, 1)
-[[0.5, [2,0]],[0.5, [2,0]]]
-#optimal_agent.save('.')
-pprint(optimal_agent.Q)
-print(optimal_agent.policy(init_state, 1), optimal_agent.get_state_value(init_state, 1))
-'''
-#optimal_agent.load('.')
-for w1 in range(10):
-    for w2 in range(10):
-        init_state = (np.array([0,0,0]), np.array([1, 2,3]))
-        optimal_agent.train(init_state, 1)
-        optimal_agent.save('.')
-        optimal_agent.action_value_3d_plot(init_state, 1)
-        print(optimal_agent.policy(init_state, 1), optimal_agent.get_state_value(init_state, 1))
-        print(optimal_agent.get_action_values(init_state, 1))
-'''
-=======
     env = SchedulingEnv(
         treatment_pattern=treatment_patterns,
         decision_epoch=decision_epoch,
@@ -86,7 +36,6 @@ for w1 in range(10):
         problem_type='allocation'
     )
     init_state = np.array([0, 0, i, 5])
->>>>>>> rl_baselines_charlie
 
     optimal_agent = OptimalAgent(env, discount_factor)
     optimal_agent.train(init_state, 1)
