@@ -39,8 +39,6 @@ class BAC:
         if actor_args is None:
             actor_args = {}
         self.env = env
-        state_dim = env.state_dim
-        action_dim = env.action_dim
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.actor = actor(env, **actor_args).to(self.device)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=actor_lr)
@@ -85,7 +83,6 @@ class BAC:
             prev_value = 0
             prev_advantage = 0
         for i in reversed(range(memory_size)):
-            print('time_step:', times[i])
             returns[i] = rewards[i] + self.discount * prev_return * masks[i]
             prev_return = returns[i, 0]
             if self.advantage_flag:
@@ -172,7 +169,6 @@ class BAC:
                     break
                 state = next_state
             if e % batch_size == 0:
-                print(e)
                 self.update(replay_memory, svd_low_rank, state_coefficient, fisher_coefficient)
                 replay_memory.reset()
             expect_total_reward += (total_reward - expect_total_reward)/e
