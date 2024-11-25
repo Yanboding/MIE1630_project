@@ -45,12 +45,6 @@ class SchedulingEnv:
         self.state_shape = (self.state_dim, )
 
         np.random.seed(42)
-<<<<<<< HEAD
-=======
-
-        self.state_dim = self.num_sessions + self.num_types
-        self.action_dim = self.num_types
->>>>>>> rl_baselines_charlie
 
     def interpret_state(self, state):
         '''
@@ -151,7 +145,6 @@ if __name__ == "__main__":
                  discount_factor=0.99,
                  problem_type='allocation'
     )
-<<<<<<< HEAD
     state, _ = env.reset([0,0,5,5], 0)
     print(state)
     total_cost = 0
@@ -162,7 +155,4 @@ if __name__ == "__main__":
             break
         state = next_state
         print(state)
-=======
-    print(env.reset([0,0,5,5], 1))
->>>>>>> rl_baselines_charlie
     #print(np.random.randint(0, 10, size=5))
